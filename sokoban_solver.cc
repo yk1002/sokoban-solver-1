@@ -18,34 +18,65 @@ inline bool IsElementOf(Solver::Square square, const Solver::SquareSet& square_s
 
 } // namespace
 
-std::vector<Level> Solver::Solve(const Level& level) {
-  // Sanity check the level.
-  assert(IsElementOf(level.player, level.floors));
-  assert(level.boxes.size() == level.goals.size());
-  assert(std::includes(std::begin(level.floors), std::end(level.floors),
-                       std::begin(level.boxes), std::end(level.boxes)));
-  assert(std::includes(std::begin(level.floors), std::end(level.floors),
-                       std::begin(level.goals), std::end(level.goals)));
+Solver::SquareSet Solver::FindDeadendFloors(const Level& level) {
+  SquareSet deadend_floors;
 
-  // Initialize all member variables.
-  level_ = level;
-  gds_entries_.clear();
-  gds_map_.clear();
-  while (!q_.empty()) {
-    q_.pop();
+  // Put a box at each floor and check if it can reach any goal. If not, that floor is a deadend floor.
+  for (const auto floor : level.floors) {
+    // You cannot put a box where the player is.
+    if (floor == level.player) {
+      continue;
+    }
+    bool can_reach_goal = false;
+    for (const auto goal : level.goals) {
+      const Level one_goal_level{
+        .player = level.player,
+        .boxes = SquareSet{{floor}},
+        .goals = SquareSet{{goal}},
+        .floors = level.floors,
+      };
+      const auto solution = Solver().Solve(one_goal_level, false);
+      if (!solution.empty()) {
+        can_reach_goal = true;
+        break;
+      }
+    }
+    if (!can_reach_goal) {
+      deadend_floors.emplace(floor);
+    }
   }
 
-  auto add_gds = [this](int predecessor_id, GDS&& gds) mutable {
+  return deadend_floors;
+}
+
+std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
+  // Make sure the level is sound.
+  const auto error_msg = SanityCheckLevel(level);
+  if (!error_msg.empty()) {
+    std::cerr << "ERROR: " << error_msg << std::endl;
+    assert(error_msg.empty());
+  }
+  
+  // Initialize all data members;
+  Initialize(level);
+
+  // Pre-analyze the level.
+  if (preanalyze) {
+    deadend_floors_ = FindDeadendFloors(level);
+    std::cerr << "Done preanalysis" << std::endl;
+  }
+
+  auto add_gds = [this](int predecessor_id, GDS gds) mutable {
     auto gds_info = std::make_unique<GDSInfo>(
         gds_entries_.size(), predecessor_id, CalcScore(gds), std::move(gds));
-    gds_map_.emplace(&gds_info->gds, gds_info.get());
+    gds_set_.emplace(&gds_info->gds);
     q_.push(gds_info.get());
     gds_entries_.push_back(std::move(gds_info));
   };
 
   // Add the initial GDS.
   constexpr int kCentinelID = -1;
-  add_gds(kCentinelID, GDS(level.boxes, level.player));
+  add_gds(kCentinelID, GDS(level_.boxes, level_.player));
 
   uint64_t last_gds_count = 0;
 
@@ -61,11 +92,6 @@ std::vector<Level> Solver::Solve(const Level& level) {
 
     // Found a solution?
     if (gdsi->score == 0) {
-      std::cerr << "=== Stats BEGIN ===" << '\n'
-                << "gds_entries_.size()=" << gds_entries_.size() << '\n'
-                << "q_.size()=" << q_.size() << '\n'
-                << "=== Stats END ===" << '\n';
-
       std::vector<Level> solution;
 
       // Add all steps to the solution.
@@ -83,13 +109,45 @@ std::vector<Level> Solver::Solve(const Level& level) {
 
     // Add adjacent GDSs to the queue.
     for (auto& next_gds : GenerateNext(gdsi->gds)) {
-      if (gds_map_.find(&next_gds) == gds_map_.end()) {
+      if (gds_set_.find(&next_gds) == gds_set_.end()) {
         add_gds(gdsi->id, std::move(next_gds));
       }
     }
   }
 
   return {};
+}
+
+std::string Solver::SanityCheckLevel(const Level& level) const {
+  if (!IsElementOf(level.player, level.floors)) {
+    return "Player is not on any floor square.";
+  }
+  if (IsElementOf(level.player, level.boxes)) {
+    return "Player is on the same square as one of the boxes.";
+  }
+  if (level.boxes.size() != level.goals.size()) {
+    return "The number of boxes and the number of goals do not match.";
+  }
+  if (!std::includes(std::begin(level.floors), std::end(level.floors),
+                     std::begin(level.boxes), std::end(level.boxes))) {
+    return "Not all boxes are on floor squares.";
+  }
+  if (!std::includes(std::begin(level.floors), std::end(level.floors),
+                     std::begin(level.goals), std::end(level.goals))) {
+    return "Not all goals are on floor squares.";
+  }
+
+  return {};
+}
+
+void Solver::Initialize(const Level& level) {
+  while (!q_.empty()) {
+    q_.pop();
+  }
+  gds_set_.clear();
+  gds_entries_.clear();
+  deadend_floors_.clear();
+  level_ = level;
 }
 
 int Solver::CalcScore(const Solver::GDS& gds) const {
@@ -111,6 +169,10 @@ bool Solver::IsWall(Square square) const {
 
 bool Solver::IsOccupied(Square square, const SquareSet& boxes) const {
   return IsWall(square) || IsElementOf(square, boxes);
+}
+
+bool Solver::IsDeadendFloor(Square square) const {
+  return IsElementOf(square, deadend_floors_);
 }
 
 const struct SquareCheck {
@@ -198,6 +260,7 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
     // an immediate deadlock.
     const auto behind_adjacent = player + square_check.behind_adjacent;
     if (!IsOccupied(behind_adjacent, boxes) &&
+        !IsDeadendFloor(behind_adjacent) &&
         !is_deadlocked(player, boxes, behind_adjacent, square_check.four_corner_deadend1) &&
         !is_deadlocked(player, boxes, behind_adjacent, square_check.four_corner_deadend2)) {
       SquareSet new_boxes(boxes);

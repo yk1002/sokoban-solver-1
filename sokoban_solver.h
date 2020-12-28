@@ -3,7 +3,7 @@
 #include <memory>
 #include <queue>
 #include <set>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "sokoban_level.h"
@@ -42,15 +42,27 @@ class Solver {
     }
   };
 
+  // Find all deadend floors;
+  SquareSet FindDeadendFloors(const Level& level);
+
   // Solve the given Sokoban level and returns a series of levels that represents a solution.
   // Returns an empty vector if no solution was found.
-  std::vector<Level> Solve(const Level& level);
+  std::vector<Level> Solve(const Level& level, bool preanalyze = true);
+
+  // Returns the number of game dynamic states.
+  size_t GetDynamicStateSize() const { return gds_entries_.size(); }
+
+  // Returns the number of game dynamic states in the priority queue.
+  size_t GetQueueSize() const { return q_.size(); }
 
  private:
+  std::string SanityCheckLevel(const Level& level) const;
+  void Initialize(const Level& level);
   int CalcScore(const GDS& gds) const;
   bool IsGoal(Square square) const;
   bool IsWall(Square square) const;
   bool IsOccupied(Square square, const SquareSet& boxes) const;
+  bool IsDeadendFloor(Square square) const;
   std::vector<GDS> GenerateNext(const GDS& gds);
 
   struct GDSInfo {
@@ -70,8 +82,9 @@ class Solver {
   };
 
   Level level_;
+  SquareSet deadend_floors_;
   std::vector<std::unique_ptr<GDSInfo>> gds_entries_;
-  std::unordered_map<GDS*, GDSInfo*, GDSHash, GDSEqual> gds_map_;
+  std::unordered_set<GDS*, GDSHash, GDSEqual> gds_set_;
   std::priority_queue<GDSInfo*, std::vector<GDSInfo*>, GDSInfoGreater> q_;
 };
 
