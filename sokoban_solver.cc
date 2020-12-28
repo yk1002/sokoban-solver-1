@@ -27,7 +27,7 @@ std::vector<Level> Solver::Solve(const Level& level) {
   assert(std::includes(std::begin(level.floors), std::end(level.floors),
                        std::begin(level.goals), std::end(level.goals)));
 
-  // Initialize all member values.
+  // Initialize all member variables.
   level_ = level;
   gds_entries_.clear();
   gds_map_.clear();
@@ -74,7 +74,7 @@ std::vector<Level> Solver::Solve(const Level& level) {
       return solution;
     }
     
-    // Add moves into neighboring spaces.
+    // Add adjacent GDSs to the queue.
     for (auto& next_gds : GenerateNext(gdsi->gds)) {
       if (gds_map_.find(&next_gds) == gds_map_.end()) {
         add_gds(gdsi->id, std::move(next_gds));
@@ -106,7 +106,6 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
   const auto player = gds.player;
   const auto& boxes = gds.boxes;
 
-  //  for (const auto [dx, dy] : {{0, 1}, {0, -1}, {1, 0}, {-1, 0}}) {
   for (const auto [dx, dy] : adjacent_deltas) {
     const Square adjacent(player.x() + dx, player.y() + dy);
     

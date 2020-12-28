@@ -42,8 +42,8 @@ class Solver {
     }
   };
 
-  // Solve the given level and returns a series of levels that represents a solusion.
-  // Empty if no solution.
+  // Solve the given Sokoban level and returns a series of levels that represents a solution.
+  // Returns an empty vector if no solution was found.
   std::vector<Level> Solve(const Level& level);
 
  private:

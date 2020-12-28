@@ -2,18 +2,6 @@
 
 #include <iostream>
 
-// ::::::::::::::::::::::::::: Board ::::::::::::::::::::::::::
-// :: Legend.................:      :.................Legend ::
-// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-// :: Wall...................: #  # :...................Wall ::
-// :: Pusher.................: p  @ :.................Pusher ::
-// :: Pusher on goal square..: P  + :..Pusher on goal square ::
-// :: Box....................: b  $ :....................Box ::
-// :: Box on goal square.....: B  * :.....Box on goal square ::
-// :: Goal square............: .  . :............Goal square ::
-// :: Floor..................:      :..................Floor ::
-// :: Floor..................: -  _ :..................Floor ::
-
 namespace sokoban {
 
 Level StringToLevel(std::string level_string) {

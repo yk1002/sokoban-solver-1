@@ -6,6 +6,8 @@
 
 namespace sokoban {
 
+// The following was taken from http://sokobano.de/wiki/index.php?title=Sok_format
+//
 // ::::::::::::::::::::::::::: Board ::::::::::::::::::::::::::
 // :: Legend.................:      :.................Legend ::
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -18,7 +20,10 @@ namespace sokoban {
 // :: Floor..................:      :..................Floor ::
 // :: Floor..................: -  _ :..................Floor ::
 
+// Create a Level from a string that represents a Sokoban level.
 Level StringToLevel(std::string level_string);
+
+// Converts a Sokoban level into its string notation.
 std::string LevelToString(const Level& level);
 
 }  // namespace sokoban
