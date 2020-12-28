@@ -48,7 +48,9 @@ class Solver {
 
  private:
   int CalcScore(const GDS& gds) const;
+  bool IsGoal(Square square) const;
   bool IsWall(Square square) const;
+  bool IsOccupied(Square square, const SquareSet& boxes) const;
   std::vector<GDS> GenerateNext(const GDS& gds);
 
   struct GDSInfo {

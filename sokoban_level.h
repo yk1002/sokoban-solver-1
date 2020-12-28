@@ -6,11 +6,21 @@
 namespace sokoban {
 
 struct Level {
-  struct Square : std::pair<int8_t, int8_t> {
-    Square(int x = -1, int y = -1) :
-        std::pair<int8_t, int8_t>(static_cast<int8_t>(x), static_cast<int8_t>(y)) {}
-    int x() const { return this->first; }
-    int y() const { return this->second; }
+  using CoordType = int8_t;
+  using SquareBase = std::pair<CoordType, CoordType>;
+  
+  struct Square : SquareBase {
+    Square() : Square(-1, -1) {}
+
+    template <typename T1, typename T2>
+    Square(T1 x, T2 y) : SquareBase(static_cast<CoordType>(x), static_cast<CoordType>(y)) {}
+
+    int x() const { return first; }
+    int y() const { return second; }
+
+    Square operator+(Square rhs) const {
+      return {first + rhs.first, second + rhs.second};
+    }
   };
 
   using SquareSet = std::set<Square>;
