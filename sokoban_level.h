@@ -70,6 +70,10 @@ struct Level {
       std::sort(std::begin(values_), std::end(values_));
     }
 
+    void ShrinkToFit() {
+      values_.shrink_to_fit();
+    }
+
     iterator begin() {
       return std::begin(values_);
     }
