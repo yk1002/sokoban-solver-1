@@ -8,10 +8,12 @@ Level StringToLevel(std::string level_string) {
   Level level;
   int x = 0;
   int y = 0;
+  bool after_wall = false;
   for (const auto c : level_string) {
     const Level::Square square(x, y);
     switch (c) {
       case '#':
+        after_wall = true;
         ++x;
         break;
         
@@ -52,6 +54,12 @@ Level StringToLevel(std::string level_string) {
         break;
 
       case ' ':
+        if (after_wall) {
+          level.floors.Add(square);
+        }
+        ++x;
+        break;
+
       case '_':
       case '-':
         level.floors.Add(square);
@@ -62,6 +70,7 @@ Level StringToLevel(std::string level_string) {
       case '|':
         x = 0;
         ++y;
+        after_wall = false;
         break;
 
       default:
