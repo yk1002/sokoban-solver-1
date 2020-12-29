@@ -13,11 +13,6 @@ int ManhattanDistance(const Square sq1, const Square sq2) {
   return std::abs(sq1.x() - sq2.x()) + std::abs(sq1.y() - sq2.y());
 }
 
-template <typename Square, typename SquareSet>
-bool IsElementOf(const Square square, const SquareSet& square_set) {
-  return square_set.find(square) != square_set.end();
-}
-
 } // namespace
 
 std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
@@ -49,16 +44,20 @@ std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
   constexpr int kCentinelID = -1;
   add_gds(kCentinelID, GDS(level_.boxes, level_.player));
 
-  uint64_t last_gds_count = 0;
-
   // The main loop.
+  int count = 0;
+  int best_score = 1 << 30;
   while (!q_.empty()) {
     const GDSInfo* gdsi = q_.top();
     q_.pop();
 
-    if (gds_entries_.size() - last_gds_count >= 1000000) {
-      std::cerr << "PROGRESS: gds_count=" << gds_entries_.size() << ", q_count=" << q_.size() << std::endl;
-      last_gds_count = gds_entries_.size();
+    best_score = std::min(best_score, gdsi->score);
+
+    if ((++count & 0xfffff) == 0xfffff) {
+      std::cerr << "PROGRESS: gds_count=" << gds_entries_.size()
+                << ", q_count=" << q_.size()
+                << ", best_score=" << best_score
+                << std::endl;
     }
 
     // Found a solution?
@@ -90,10 +89,10 @@ std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
 }
 
 std::string Solver::SanityCheckLevel(const Level& level) const {
-  if (!IsElementOf(level.player, level.floors)) {
+  if (!level.floors.Contains(level.player)) {
     return "Player is not on any floor square.";
   }
-  if (IsElementOf(level.player, level.boxes)) {
+  if (level.boxes.Contains(level.player)) {
     return "Player is on the same square as one of the boxes.";
   }
   if (level.boxes.size() != level.goals.size()) {
@@ -123,7 +122,7 @@ void Solver::Initialize(const Level& level) {
 
 int Solver::CalcScore(const Solver::GDS& gds) const {
   int score = 0;
-  auto it = level_.goals.cbegin();
+  auto it = level_.goals.begin();
   for (const auto& square : gds.boxes) {
     score += ManhattanDistance(*it++, square);
   }
@@ -131,19 +130,19 @@ int Solver::CalcScore(const Solver::GDS& gds) const {
 }
 
 bool Solver::IsGoal(Square square) const {
-  return IsElementOf(square, level_.goals);
+  return level_.goals.Contains(square);
 }
 
 bool Solver::IsWall(Square square) const {
-  return !IsElementOf(square, level_.floors);
+  return !level_.floors.Contains(square);
 }
 
 bool Solver::IsOccupied(Square square, const SquareSet& boxes) const {
-  return IsWall(square) || IsElementOf(square, boxes);
+  return IsWall(square) || boxes.Contains(square);
 }
 
 bool Solver::IsDeadendFloor(Square square) const {
-  return IsElementOf(square, deadend_floors_);
+  return deadend_floors_.Contains(square);
 }
 
 const struct SquareCheck {
@@ -194,7 +193,7 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
     }
 
     // If the adjacent square is not occupied by a box, move the player into it.
-    if (!IsElementOf(adjacent, boxes)) {
+    if (!boxes.Contains(adjacent)) {
       next_steps.emplace_back(boxes, adjacent);
       continue;
     }
@@ -203,17 +202,17 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
                           const auto behind_adjacent, const auto& four_corner_deadend) {
       const auto sq1 = player + four_corner_deadend[0];
       const bool sq1_is_wall = IsWall(sq1);
-      const bool sq1_is_box = IsElementOf(sq1, boxes);
+      const bool sq1_is_box = boxes.Contains(sq1);
       if (!sq1_is_wall && !sq1_is_box) { return false; }
 
       const auto sq2 = player + four_corner_deadend[1];
       const bool sq2_is_wall = IsWall(sq2);
-      const bool sq2_is_box = IsElementOf(sq2, boxes);
+      const bool sq2_is_box = boxes.Contains(sq2);
       if (!sq2_is_wall && !sq2_is_box) { return false; }
 
       const auto sq3 = player + four_corner_deadend[2];
       const bool sq3_is_wall = IsWall(sq3);
-      const bool sq3_is_box = IsElementOf(sq3, boxes);
+      const bool sq3_is_box = boxes.Contains(sq3);
       if (!sq3_is_wall && !sq3_is_box) { return false; }
 
       // All four corners will be occupied if the box is pushed into behind_adjacent.
@@ -235,8 +234,7 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
         !is_deadlocked(player, boxes, behind_adjacent, square_check.four_corner_deadend1) &&
         !is_deadlocked(player, boxes, behind_adjacent, square_check.four_corner_deadend2)) {
       SquareSet new_boxes(boxes);
-      new_boxes.erase(adjacent);
-      new_boxes.insert(behind_adjacent);
+      new_boxes.Replace(adjacent, behind_adjacent);
       next_steps.emplace_back(std::move(new_boxes), adjacent);
     }
   }
@@ -268,7 +266,7 @@ Solver::SquareSet Solver::FindDeadendFloors(const Level& level) {
       }
     }
     if (!can_reach_goal) {
-      deadend_floors.emplace(floor);
+      deadend_floors.Add(floor);
     }
   }
 

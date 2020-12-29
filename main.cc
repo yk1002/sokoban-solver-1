@@ -9,6 +9,7 @@ int main(int argc, char** argv) {
   std::cerr << "Input:\n" << level_string << "\n";
 
   const auto level = sokoban::StringToLevel(level_string);
+  std::cerr << sokoban::LevelToString(level) << "\n";
 
   sokoban::Solver solver;
   const auto solution_steps = solver.Solve(level);

@@ -18,43 +18,43 @@ Level StringToLevel(std::string level_string) {
       case 'p':
       case '@':
         level.player = square;
-        level.floors.emplace(square);
+        level.floors.Add(square);
         ++x;
         break;
 
       case 'P':
       case '+':
         level.player = square;
-        level.goals.emplace(square);
-        level.floors.emplace(square);
+        level.goals.Add(square);
+        level.floors.Add(square);
         ++x;
         break;
 
       case 'b':
       case '$':
-        level.boxes.emplace(square);
-        level.floors.emplace(square);
+        level.boxes.Add(square);
+        level.floors.Add(square);
         ++x;
         break;
 
       case 'B':
       case '*':
-        level.boxes.emplace(square);
-        level.goals.emplace(square);
-        level.floors.emplace(square);
+        level.boxes.Add(square);
+        level.goals.Add(square);
+        level.floors.Add(square);
         ++x;
         break;
 
       case '.':
-        level.goals.emplace(square);
-        level.floors.emplace(square);
+        level.goals.Add(square);
+        level.floors.Add(square);
         ++x;
         break;
 
       case ' ':
       case '_':
       case '-':
-        level.floors.emplace(square);
+        level.floors.Add(square);
         ++x;
         break;
 
@@ -83,7 +83,7 @@ std::string LevelToString(const Level& level) {
   }
 
   auto is_in = [](auto sq, const auto& square_set) {
-    return square_set.count(sq) == 1;
+    return square_set.Contains(sq);
   };
 
   std::string result;
