@@ -8,49 +8,20 @@ namespace sokoban {
 
 namespace {
 
-inline int ManhattanDistance(const Solver::Square sq1, const Solver::Square sq2) {
+template <typename Square>
+int ManhattanDistance(const Square sq1, const Square sq2) {
   return std::abs(sq1.x() - sq2.x()) + std::abs(sq1.y() - sq2.y());
 }
 
-inline bool IsElementOf(Solver::Square square, const Solver::SquareSet& square_set) {
+template <typename Square, typename SquareSet>
+bool IsElementOf(const Square square, const SquareSet& square_set) {
   return square_set.find(square) != square_set.end();
 }
 
 } // namespace
 
-Solver::SquareSet Solver::FindDeadendFloors(const Level& level) {
-  SquareSet deadend_floors;
-
-  // Put a box at each floor and check if it can reach any goal. If not, that floor is a deadend floor.
-  for (const auto floor : level.floors) {
-    // You cannot put a box where the player is.
-    if (floor == level.player) {
-      continue;
-    }
-    bool can_reach_goal = false;
-    for (const auto goal : level.goals) {
-      const Level one_goal_level{
-        .player = level.player,
-        .boxes = SquareSet{{floor}},
-        .goals = SquareSet{{goal}},
-        .floors = level.floors,
-      };
-      const auto solution = Solver().Solve(one_goal_level, false);
-      if (!solution.empty()) {
-        can_reach_goal = true;
-        break;
-      }
-    }
-    if (!can_reach_goal) {
-      deadend_floors.emplace(floor);
-    }
-  }
-
-  return deadend_floors;
-}
-
 std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
-  // Make sure the level is sound.
+  // Sanity-check the level.
   const auto error_msg = SanityCheckLevel(level);
   if (!error_msg.empty()) {
     std::cerr << "ERROR: " << error_msg << std::endl;
@@ -271,6 +242,37 @@ std::vector<Solver::GDS> Solver::GenerateNext(const Solver::GDS& gds) {
   }
 
   return next_steps;
+}
+
+Solver::SquareSet Solver::FindDeadendFloors(const Level& level) {
+  SquareSet deadend_floors;
+
+  // Put a box at each floor and check if it can reach any goal. If not, that floor is a deadend floor.
+  for (const auto floor : level.floors) {
+    // You cannot put a box where the player is.
+    if (floor == level.player) {
+      continue;
+    }
+    bool can_reach_goal = false;
+    for (const auto goal : level.goals) {
+      const Level one_goal_level{
+        .player = level.player,
+        .boxes = SquareSet{{floor}},
+        .goals = SquareSet{{goal}},
+        .floors = level.floors,
+      };
+      const auto solution = Solver().Solve(one_goal_level, false);
+      if (!solution.empty()) {
+        can_reach_goal = true;
+        break;
+      }
+    }
+    if (!can_reach_goal) {
+      deadend_floors.emplace(floor);
+    }
+  }
+
+  return deadend_floors;
 }
 
 }  // namespace sokoban

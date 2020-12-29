@@ -12,6 +12,17 @@ namespace sokoban {
 
 class Solver {
  public:
+  // Solve the given Sokoban level and returns a series of levels that represents a solution.
+  // Returns an empty vector if no solution was found.
+  std::vector<Level> Solve(const Level& level, bool preanalyze = true);
+
+  // Returns the number of game dynamic states.
+  size_t GetDynamicStateSize() const { return gds_entries_.size(); }
+
+  // Returns the number of game dynamic states in the priority queue.
+  size_t GetQueueSize() const { return q_.size(); }
+
+ private:
   using Square = Level::Square;
   using SquareSet = Level::SquareSet;
   
@@ -42,29 +53,6 @@ class Solver {
     }
   };
 
-  // Find all deadend floors;
-  SquareSet FindDeadendFloors(const Level& level);
-
-  // Solve the given Sokoban level and returns a series of levels that represents a solution.
-  // Returns an empty vector if no solution was found.
-  std::vector<Level> Solve(const Level& level, bool preanalyze = true);
-
-  // Returns the number of game dynamic states.
-  size_t GetDynamicStateSize() const { return gds_entries_.size(); }
-
-  // Returns the number of game dynamic states in the priority queue.
-  size_t GetQueueSize() const { return q_.size(); }
-
- private:
-  std::string SanityCheckLevel(const Level& level) const;
-  void Initialize(const Level& level);
-  int CalcScore(const GDS& gds) const;
-  bool IsGoal(Square square) const;
-  bool IsWall(Square square) const;
-  bool IsOccupied(Square square, const SquareSet& boxes) const;
-  bool IsDeadendFloor(Square square) const;
-  std::vector<GDS> GenerateNext(const GDS& gds);
-
   struct GDSInfo {
     GDSInfo() = default;
     GDSInfo(int id_in, int predecessor_id_in, int score_in, GDS&& gds_in) :
@@ -80,6 +68,16 @@ class Solver {
       return (lhs->score > rhs->score) || (lhs->score == rhs->score && lhs->id > rhs->id);
     }
   };
+
+  std::string SanityCheckLevel(const Level& level) const;
+  void Initialize(const Level& level);
+  int CalcScore(const GDS& gds) const;
+  bool IsGoal(Square square) const;
+  bool IsWall(Square square) const;
+  bool IsOccupied(Square square, const SquareSet& boxes) const;
+  bool IsDeadendFloor(Square square) const;
+  std::vector<GDS> GenerateNext(const GDS& gds);
+  SquareSet FindDeadendFloors(const Level& level);
 
   Level level_;
   SquareSet deadend_floors_;
