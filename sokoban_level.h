@@ -31,8 +31,18 @@ struct Level {
     using const_iterator = typename std::vector<Square>::const_iterator;
 
     SquareSet() = default;
+    SquareSet(const SquareSet& orig) {
+      values_.reserve(orig.values_.size());
+      values_ = orig.values_;
+    }
     SquareSet(std::initializer_list<Square> il) : values_(il) {
       std::sort(std::begin(values_), std::end(values_));
+    }
+
+    SquareSet& operator = (const SquareSet& rhs) {
+      values_.reserve(rhs.values_.size());
+      values_ = rhs.values_;
+      return *this;
     }
 
     bool operator == (const SquareSet& rhs) const {

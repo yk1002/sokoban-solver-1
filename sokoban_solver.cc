@@ -118,7 +118,6 @@ void Solver::Initialize(const Level& level) {
   gds_entries_.clear();
   deadend_floors_.clear();
   level_ = level;
-  level_.boxes.ShrinkToFit();
 }
 
 int Solver::CalcScore(const Solver::GDS& gds) const {
