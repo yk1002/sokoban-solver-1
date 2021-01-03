@@ -32,24 +32,30 @@ std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
     std::cerr << "Done preanalysis" << std::endl;
   }
 
-  auto add_gds = [this](int predecessor_id, GDS gds) mutable {
-    auto gds_info = std::make_unique<GDSInfo>(
-        gds_entries_.size(), predecessor_id, CalcScore(gds), std::move(gds));
-    gds_set_.emplace(&gds_info->gds);
-    q_.push(gds_info.get());
-    gds_entries_.push_back(std::move(gds_info));
+  auto add_gds = [this](GDSInfoID predecessor_id, GDS gds) mutable {
+    const auto gds_info_id = static_cast<GDSInfoID>(gds_entries_.size());
+    gds_entries_.emplace_back(predecessor_id, 0, std::move(gds));
+    if (gds_set_.find(gds_info_id) == gds_set_.end()) {
+      auto& new_entry = gds_entries_.back();
+      new_entry.score = CalcScore(new_entry.gds);
+      gds_set_.emplace(gds_info_id);
+      q_.push(gds_info_id);
+    } else {
+      gds_entries_.pop_back();
+    }
   };
 
   // Add the initial GDS.
-  constexpr int kCentinelID = -1;
-  add_gds(kCentinelID, GDS(level_.boxes, level_.player));
+  add_gds(kInvalidGDSInfoID, GDS(level_.boxes, level_.player));
 
   // The main loop.
   int count = 0;
-  int best_score = 1 << 30;
+  uint16_t best_score = 1 << 14;
   while (!q_.empty()) {
-    const GDSInfo* gdsi = q_.top();
+    const GDSInfoID gds_info_id = q_.top();
     q_.pop();
+
+    const GDSInfo* gdsi = &gds_entries_[gds_info_id];
 
     best_score = std::min(best_score, gdsi->score);
 
@@ -65,8 +71,8 @@ std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
       std::vector<Level> solution;
 
       // Add all steps to the solution.
-      for (int id = gdsi->id; id != kCentinelID; id = gds_entries_[id]->predecessor_id) {
-        const auto& gds = gds_entries_[id]->gds;
+      for (int id = gds_info_id; id != kInvalidGDSInfoID; id = gds_entries_[id].predecessor_id) {
+        const auto& gds = gds_entries_[id].gds;
         Level step(level_);
         step.player = gds.player;
         step.boxes = gds.boxes;
@@ -79,9 +85,7 @@ std::vector<Level> Solver::Solve(const Level& level, bool preanalyze) {
 
     // Add adjacent GDSs to the queue.
     for (auto& next_gds : GenerateNext(gdsi->gds)) {
-      if (gds_set_.find(&next_gds) == gds_set_.end()) {
-        add_gds(gdsi->id, std::move(next_gds));
-      }
+      add_gds(gds_info_id, std::move(next_gds));
     }
   }
 
@@ -120,11 +124,11 @@ void Solver::Initialize(const Level& level) {
   level_ = level;
 }
 
-int Solver::CalcScore(const Solver::GDS& gds) const {
-  int score = 0;
+Solver::Score Solver::CalcScore(const Solver::GDS& gds) const {
+  Score score = 0;
   auto it = level_.goals.begin();
   for (const auto& square : gds.boxes) {
-    score += ManhattanDistance(*it++, square);
+    score += static_cast<Score>(ManhattanDistance(*it++, square));
   }
   return score;
 }

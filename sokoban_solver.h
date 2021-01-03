@@ -1,8 +1,8 @@
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <queue>
-#include <set>
 #include <unordered_set>
 #include <vector>
 
@@ -26,7 +26,7 @@ class Solver {
   using Square = Level::Square;
   using SquareSet = Level::SquareSet;
   
-  struct GDS { // Game Dynamic State
+  struct __attribute__ ((packed)) GDS { // Game Dynamic State
     GDS() = default;
     GDS(const SquareSet& boxes_in, Square player_in) : boxes(boxes_in), player(player_in) {}
     GDS(SquareSet&& boxes_in, Square player_in) : boxes(std::move(boxes_in)), player(player_in) {}
@@ -34,44 +34,23 @@ class Solver {
     Square player;
   };
   
-  struct GDSHash {
-    std::size_t operator()(const GDS* gds) const {
-      auto val = [](auto square) { return square.x() | (square.y() << 8); };
+  using GDSInfoID = uint32_t;
+  static constexpr GDSInfoID kInvalidGDSInfoID = std::numeric_limits<GDSInfoID>::max();
 
-      std::size_t seed = 0;
-      for(const auto& x : gds->boxes) {
-        seed ^= val(x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-      }
-      seed ^= val(gds->player) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-      return seed;
-    }
-  };
+  using Score = uint16_t;
 
-  struct GDSEqual {
-    bool operator()(const GDS* lhs, const GDS* rhs) const {
-      return lhs->boxes == rhs->boxes && lhs->player == rhs->player;
-    }
-  };
-
-  struct GDSInfo {
+  struct __attribute__ ((packed)) GDSInfo {
     GDSInfo() = default;
-    GDSInfo(int id_in, int predecessor_id_in, int score_in, GDS&& gds_in) :
-        id(id_in), predecessor_id(predecessor_id_in), score(score_in), gds(std::move(gds_in)) {}
-    int id = -1;
-    int predecessor_id = -1;
-    int score = -1;
+    GDSInfo(GDSInfoID predecessor_id_in, uint16_t score_in, GDS&& gds_in) :
+        predecessor_id(predecessor_id_in), score(score_in), gds(std::move(gds_in)) {}
+    const GDSInfoID predecessor_id = -1;
+    Score score = std::numeric_limits<Score>::max();
     GDS gds;
   };
     
-  struct GDSInfoGreater {
-    bool operator()(const GDSInfo* lhs, const GDSInfo* rhs) const {
-      return (lhs->score > rhs->score) || (lhs->score == rhs->score && lhs->id > rhs->id);
-    }
-  };
-
   std::string SanityCheckLevel(const Level& level) const;
   void Initialize(const Level& level);
-  int CalcScore(const GDS& gds) const;
+  Score CalcScore(const GDS& gds) const;
   bool IsGoal(Square square) const;
   bool IsWall(Square square) const;
   bool IsOccupied(Square square, const SquareSet& boxes) const;
@@ -79,11 +58,51 @@ class Solver {
   std::vector<GDS> GenerateNext(const GDS& gds);
   SquareSet FindDeadendFloors(const Level& level);
 
+  struct GDSInfoHash {
+    GDSInfoHash(const std::vector<GDSInfo>& gds_entries) : gds_entries_(gds_entries) {}
+    size_t operator()(GDSInfoID id) const {
+      const auto& gds = gds_entries_[id].gds;
+      auto val = [](auto square) { return square.x() | (square.y() << 8); };
+
+      std::size_t seed = 0;
+      for(const auto& x : gds.boxes) {
+        seed ^= val(x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      }
+      seed ^= val(gds.player) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      return seed;
+    }
+
+    const std::vector<GDSInfo>& gds_entries_;
+  };
+
+  struct GDSInfoEqual {
+    GDSInfoEqual(const std::vector<GDSInfo>& gds_entries) : gds_entries_(gds_entries) {}
+    bool operator()(GDSInfoID id_lhs, GDSInfoID id_rhs) const {
+      const auto& lhs = gds_entries_[id_lhs].gds;
+      const auto& rhs = gds_entries_[id_rhs].gds;
+      return lhs.boxes == rhs.boxes && lhs.player == rhs.player;
+    }
+
+    const std::vector<GDSInfo>& gds_entries_;
+  };
+
+  struct GDSInfoGreater {
+    GDSInfoGreater(const std::vector<GDSInfo>& gds_entries) : gds_entries_(gds_entries) {}
+    bool operator()(GDSInfoID id_lhs, GDSInfoID id_rhs) const {
+      const auto& lhs = gds_entries_[id_lhs];
+      const auto& rhs = gds_entries_[id_rhs];
+      return (lhs.score > rhs.score) || (lhs.score == rhs.score && id_lhs > id_rhs);
+    }
+
+    const std::vector<GDSInfo>& gds_entries_;
+  };
+
   Level level_;
   SquareSet deadend_floors_;
-  std::vector<std::unique_ptr<GDSInfo>> gds_entries_;
-  std::unordered_set<GDS*, GDSHash, GDSEqual> gds_set_;
-  std::priority_queue<GDSInfo*, std::vector<GDSInfo*>, GDSInfoGreater> q_;
+  std::vector<GDSInfo> gds_entries_;
+  std::unordered_set<GDSInfoID, GDSInfoHash, GDSInfoEqual> gds_set_{8192, GDSInfoHash{gds_entries_},
+        GDSInfoEqual{gds_entries_}};
+  std::priority_queue<GDSInfoID, std::vector<GDSInfoID>, GDSInfoGreater> q_{GDSInfoGreater{gds_entries_}};
 };
 
 }  // namespace sokoban
